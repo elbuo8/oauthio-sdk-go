@@ -84,6 +84,9 @@ func (o *OAuth) Auth(code string) (AuthRes, error) {
 		return nil, "oauth.go: State is missing in response"
 	}
 	oauthResp.ExpireDate = time.Now() + oauthResp.ExpiresIn
+	oauthResp.OAuthdURL = o.OAuthdURL
+	oauthResp.Client = o.Client
+	oauthResp.appKey = o.appKey
 	return oauthResp, nil
 }
 
@@ -107,6 +110,7 @@ func (o *OAuth) RefreshCredentials(creds *AuthRes, force bool) error {
 		if err != nil {
 			return nil, "oauth.go: Couldn't parse response"
 		}
+		creds.Refreshed = true
 	}
 	return nil
 }
