@@ -25,12 +25,6 @@ type OAuth struct {
 	Client    *http.Client
 }
 
-type AuthRes struct {
-	AccessToken *string
-	State       *string
-	Provider    *string
-}
-
 func timeoutHandler(network, address string) (net.Conn, error) {
 	return net.DialTimeout(network, address, time.Duration(5*time.Second))
 }
@@ -86,8 +80,33 @@ func (o *OAuth) Auth(code string) (AuthRes, error) {
 	if err != nil {
 		return nil, "oauth.go: Couldn't parse response"
 	}
-	if oauthResp.State == nil {
+	if oauthResp.State == "" {
 		return nil, "oauth.go: State is missing in response"
 	}
+	oauthResp.ExpireDate = time.Now() + oauthResp.ExpiresIn
 	return oauthResp, nil
+}
+
+func (o *OAuth) RefreshCredentials(creds *AuthRes, force bool) error {
+	if force || time.Now() > creds.ExpireDate {
+		data := url.Values{
+			"token":  creds.RefreshToken,
+			"key":    o.appKey,
+			"secret": o.appSecret,
+		}
+		response, err := http.PostForm(o.OAuthdURL+"/auth/refresh_token/", data)
+		if err != nil {
+			return "oauth.go: Couldn't communicate with Oauthd"
+		}
+		body, err := ioutil.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil {
+			return "oauth.go: Couldn't read Oauthd response"
+		}
+		err = json.Unmarshal(data, &creds)
+		if err != nil {
+			return nil, "oauth.go: Couldn't parse response"
+		}
+	}
+	return nil
 }
