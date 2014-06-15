@@ -26,9 +26,9 @@ type OAuth struct {
 }
 
 type AuthRes struct {
-	AccessToken string
-	State       string
-	Provider    string
+	AccessToken *string
+	State       *string
+	Provider    *string
 }
 
 func timeoutHandler(network, address string) (net.Conn, error) {
@@ -66,7 +66,7 @@ func (o *OAuth) GenerateStateToken() (string, error) {
 	return id.String(), nil
 }
 
-func (o *OAuth) Auth(code string) (string, error) {
+func (o *OAuth) Auth(code string) (AuthRes, error) {
 	data := url.Values{
 		"code":   code,
 		"key":    o.appKey,
@@ -74,18 +74,20 @@ func (o *OAuth) Auth(code string) (string, error) {
 	}
 	response, err := http.PostForm(o.OAuthdURL+"/auth/access_token", data)
 	if err != nil {
-		return "", err
+		return "", "oauth.go: Couldn't communicate with Oauthd"
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
-		return "", err
+		return nil, "oauth.go: Couldn't read Oauthd response"
 	}
 	var oauthResp AuthRes
 	err = json.Unmarshal(body, &oauthResp)
 	if err != nil {
-		return "", err
+		return nil, "oauth.go: Couldn't parse response"
+	}
+	if oauthResp.State == nil {
+		return nil, "oauth.go: State is missing in response"
 	}
 	return oauthResp, nil
-
 }
