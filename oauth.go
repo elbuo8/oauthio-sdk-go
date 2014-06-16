@@ -1,11 +1,10 @@
 package oauthio
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/nu7hatch/gouuid"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -60,30 +59,29 @@ func (o *OAuth) GenerateStateToken() (string, error) {
 	return id.String(), nil
 }
 
-func (o *OAuth) Auth(code string) (AuthRes, error) {
-	data := url.Values{
-		"code":   code,
-		"key":    o.appKey,
-		"secret": o.appSecret,
-	}
+func (o *OAuth) Auth(code string) (*AuthRes, error) {
+	data := url.Values{}
+	data.Set("code", code)
+	data.Set("key", o.appKey)
+	data.Set("secret", o.appSecret)
 	response, err := http.PostForm(o.OAuthdURL+"/auth/access_token", data)
 	if err != nil {
-		return "", "oauth.go: Couldn't communicate with Oauthd"
+		return nil, errors.New("oauth.go: Couldn't communicate with Oauthd")
 	}
 	body, err := ioutil.ReadAll(response.Body)
 	response.Body.Close()
 	if err != nil {
-		return nil, "oauth.go: Couldn't read Oauthd response"
+		return nil, errors.New("oauth.go: Couldn't read Oauthd response")
 	}
-	var oauthResp AuthRes
-	err = json.Unmarshal(body, &oauthResp)
+	oauthResp := &AuthRes{}
+	err = json.Unmarshal(body, oauthResp)
 	if err != nil {
-		return nil, "oauth.go: Couldn't parse response"
+		return nil, errors.New("oauth.go: Couldn't parse response")
 	}
 	if oauthResp.State == "" {
-		return nil, "oauth.go: State is missing in response"
+		return nil, errors.New("oauth.go: State is missing in response")
 	}
-	oauthResp.ExpireDate = time.Now() + oauthResp.ExpiresIn
+	oauthResp.ExpireDate = time.Now().Unix() + oauthResp.ExpiresIn
 	oauthResp.OAuthdURL = o.OAuthdURL
 	oauthResp.Client = o.Client
 	oauthResp.appKey = o.appKey
@@ -91,24 +89,23 @@ func (o *OAuth) Auth(code string) (AuthRes, error) {
 }
 
 func (o *OAuth) RefreshCredentials(creds *AuthRes, force bool) error {
-	if force || time.Now() > creds.ExpireDate {
-		data := url.Values{
-			"token":  creds.RefreshToken,
-			"key":    o.appKey,
-			"secret": o.appSecret,
-		}
+	if force || time.Now().Unix() > creds.ExpireDate {
+		data := url.Values{}
+		data.Set("token", creds.RefreshToken)
+		data.Set("key", o.appKey)
+		data.Set("secret", o.appSecret)
 		response, err := http.PostForm(o.OAuthdURL+"/auth/refresh_token/", data)
 		if err != nil {
-			return "oauth.go: Couldn't communicate with Oauthd"
+			return errors.New("oauth.go: Couldn't communicate with Oauthd")
 		}
 		body, err := ioutil.ReadAll(response.Body)
 		response.Body.Close()
 		if err != nil {
-			return "oauth.go: Couldn't read Oauthd response"
+			return errors.New("oauth.go: Couldn't read Oauthd response")
 		}
-		err = json.Unmarshal(data, &creds)
+		err = json.Unmarshal(body, &creds)
 		if err != nil {
-			return nil, "oauth.go: Couldn't parse response"
+			return errors.New("oauth.go: Couldn't parse response")
 		}
 		creds.Refreshed = true
 	}
