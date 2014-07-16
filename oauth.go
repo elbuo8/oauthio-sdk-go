@@ -59,7 +59,7 @@ func (o *OAuth) GenerateStateToken() (string, error) {
 	return id.String(), nil
 }
 
-func (o *OAuth) Auth(code string) (*AuthRes, error) {
+func (o *OAuth) Auth(code string) (*OAuthRequestObject, error) {
 	data := url.Values{}
 	data.Set("code", code)
 	data.Set("key", o.appKey)
@@ -73,7 +73,7 @@ func (o *OAuth) Auth(code string) (*AuthRes, error) {
 	if err != nil {
 		return nil, errors.New("oauth.go: Couldn't read Oauthd response")
 	}
-	oauthResp := &AuthRes{}
+	oauthResp := &OAuthRequestObject{}
 	err = json.Unmarshal(body, oauthResp)
 	if err != nil {
 		return nil, errors.New("oauth.go: Couldn't parse response")
@@ -88,7 +88,7 @@ func (o *OAuth) Auth(code string) (*AuthRes, error) {
 	return oauthResp, nil
 }
 
-func (o *OAuth) RefreshCredentials(creds *AuthRes, force bool) error {
+func (o *OAuth) RefreshCredentials(creds *OAuthRequestObject, force bool) error {
 	if force || time.Now().Unix() > creds.ExpireDate {
 		data := url.Values{}
 		data.Set("token", creds.RefreshToken)

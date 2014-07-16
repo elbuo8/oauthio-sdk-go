@@ -8,9 +8,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
-type AuthRes struct {
+type OAuthRequestObject struct {
 	AccessToken  string `json:"access_token"`
 	OAuthToken   string `json:"oauth_token"`
 	OAuthSecret  string `json:"oauth_token_secret"`
@@ -25,11 +26,11 @@ type AuthRes struct {
 	Client       *http.Client
 }
 
-func (a *AuthRes) Get(endpoint string) ([]byte, error) {
+func (a *OAuthRequestObject) Get(endpoint string) ([]byte, error) {
 	return a.makeRequest("GET", endpoint, nil)
 }
 
-func (a *AuthRes) Post(endpoint string, body interface{}) ([]byte, error) {
+func (a *OAuthRequestObject) Post(endpoint string, body interface{}) ([]byte, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -37,7 +38,7 @@ func (a *AuthRes) Post(endpoint string, body interface{}) ([]byte, error) {
 	return a.makeRequest("POST", endpoint, bytes.NewReader(payload))
 }
 
-func (a *AuthRes) Put(endpoint string, body interface{}) ([]byte, error) {
+func (a *OAuthRequestObject) Put(endpoint string, body interface{}) ([]byte, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -45,11 +46,11 @@ func (a *AuthRes) Put(endpoint string, body interface{}) ([]byte, error) {
 	return a.makeRequest("PUT", endpoint, bytes.NewReader(payload))
 }
 
-func (a *AuthRes) Del(endpoint string) ([]byte, error) {
+func (a *OAuthRequestObject) Del(endpoint string) ([]byte, error) {
 	return a.makeRequest("DELETE", endpoint, nil)
 }
 
-func (a *AuthRes) Patch(endpoint string, body interface{}) ([]byte, error) {
+func (a *OAuthRequestObject) Patch(endpoint string, body interface{}) ([]byte, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -57,14 +58,13 @@ func (a *AuthRes) Patch(endpoint string, body interface{}) ([]byte, error) {
 	return a.makeRequest("PATCH", endpoint, bytes.NewReader(payload))
 }
 
-/*
-func (a *AuthRes) Me(endpoint string, body interface{}) ([]byte, error) {
-
+func (a *OAuthRequestObject) Me(filters []string) ([]byte, error) {
+	qs := url.Values{}
+	qs.Set("filters", strings.Join(filters, ","))
+	return a.makeMeRequest(qs)
 }
-*/
 
-func (a *AuthRes) makeRequest(method, endpoint string, body io.Reader) ([]byte, error) {
-	req, _ := http.NewRequest(method, a.OAuthdURL+"/request/"+a.Provider+endpoint, body)
+func (a *OAuthRequestObject) buildHeaders(r *http.Request) {
 	headers := url.Values{}
 	headers.Set("k", a.appKey)
 	if a.AccessToken == "" {
@@ -74,10 +74,25 @@ func (a *AuthRes) makeRequest(method, endpoint string, body io.Reader) ([]byte, 
 		headers.Set("oauth_token_secret", a.OAuthSecret)
 		headers.Set("oauthv1", "1")
 	}
-	req.Header = http.Header{
+	r.Header = http.Header{
 		"oauthio": []string{headers.Encode()},
 	}
-	response, err := a.Client.Do(req)
+}
+
+func (a *OAuthRequestObject) makeMeRequest(filters url.Values) ([]byte, error) {
+	req, _ := http.NewRequest("GET", a.OAuthdURL+"/auth/"+a.Provider+"/me?"+filters.Encode(), nil)
+	a.buildHeaders(req)
+	return excuteRequest(a.Client, req)
+}
+
+func (a *OAuthRequestObject) makeRequest(method, endpoint string, body io.Reader) ([]byte, error) {
+	req, _ := http.NewRequest(method, a.OAuthdURL+"/request/"+a.Provider+endpoint, body)
+	a.buildHeaders(req)
+	return excuteRequest(a.Client, req)
+}
+
+func excuteRequest(c *http.Client, r *http.Request) ([]byte, error) {
+	response, err := c.Do(r)
 	if err != nil {
 		return nil, errors.New("oauth_request.go: Couldn't reach Oauthd")
 	}
