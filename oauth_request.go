@@ -26,6 +26,11 @@ type OAuthRequestObject struct {
 	Client       *http.Client
 }
 
+type OAuthRequestObjectPayload struct {
+	data		OAuthRequestObject
+	status		string
+}
+
 func (a *OAuthRequestObject) Get(endpoint string) ([]byte, error) {
 	return a.makeRequest("GET", endpoint, nil)
 }
@@ -72,7 +77,7 @@ func (a *OAuthRequestObject) buildHeaders(r *http.Request) {
 	} else {
 		headers.Set("oauth_token", a.OAuthToken)
 		headers.Set("oauth_token_secret", a.OAuthSecret)
-		headers.Set("oauthv1", "1")
+		headers.Set("oauthv", "1")
 	}
 	r.Header = http.Header{
 		"oauthio": []string{headers.Encode()},
