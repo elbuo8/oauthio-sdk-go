@@ -26,11 +26,6 @@ type OAuthRequestObject struct {
 	Client       *http.Client
 }
 
-type OAuthRequestObjectPayload struct {
-	data		OAuthRequestObject
-	status		string
-}
-
 func (a *OAuthRequestObject) Get(endpoint string) ([]byte, error) {
 	return a.makeRequest("GET", endpoint, nil)
 }
@@ -72,7 +67,7 @@ func (a *OAuthRequestObject) Me(filters []string) ([]byte, error) {
 func (a *OAuthRequestObject) buildHeaders(r *http.Request) {
 	headers := url.Values{}
 	headers.Set("k", a.appKey)
-	if a.AccessToken == "" {
+	if a.AccessToken != "" {
 		headers.Set("access_token", a.AccessToken)
 	} else {
 		headers.Set("oauth_token", a.OAuthToken)

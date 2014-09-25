@@ -70,9 +70,7 @@ func (o *OAuth) GenerateStateToken() (string, error) {
 
 
 func (o *OAuth) Redirect(provider string, redirectTo string) func(http.ResponseWriter, *http.Request) {
-	fmt.Println("haahaha")
 	return func(res http.ResponseWriter, req *http.Request) {
-		fmt.Println("uhuhuhuh")
 		csrf_token, _ := o.GenerateStateToken()
 		Url, _ := url.Parse(o.OAuthdURL + o.OAuthdBase + "/" + provider)
 		parameters := url.Values{}
@@ -86,41 +84,37 @@ func (o *OAuth) Redirect(provider string, redirectTo string) func(http.ResponseW
 	}
 }
 
-/*func Redirect(provider string, redirectTo string) func(http.ResponseWriter, *http.Request) {
-	return func(res http.ResponseWriter, req *http.Request) {
-		Url, _ := url.Parse("https://oauth.io/auth/" + provider)
-		parameters := url.Values{}
-		parameters.Add("k", "fsjhfkdsjhfkdjs")
-		parameters.Add("opts", "{\"state\":\"fdsafdsa\"}")
-		parameters.Add("redirect_type", "server")
-		parameters.Add("redirect_uri", redirectTo)
-		Url.RawQuery = parameters.Encode()
-		fmt.Println(Url.String(), http.StatusFound)
-		http.Redirect(res, req, Url.String(), http.StatusFound)
-	}
-}*/
-
-
 type OAuthResponseData struct {
-	code 		string
+	Code 		string
 }
 
 type OAuthResponse struct {
-	status 		string
-	data 		OAuthResponseData
-	state 		string
-	provider 	string
+	Status 		string
+	Data 		OAuthResponseData
+	State 		string
+	Provider 	string
+	Message		string
 }
 
 func (o *OAuth) Callback(cb func(*OAuthRequestObject, error, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
-		oauthioParam := req.URL.Query()["oauthio"][0]
-		var r OAuthResponse
-		json.Unmarshal([]byte(oauthioParam), r)
-		fmt.Println(oauthioParam)
-		oauthResp, error := o.Auth(r.data.code)
+		oauthioParam := req.URL.Query()["oauthio"]
+		if len(oauthioParam) == 0 {
+			cb(nil, errors.New("oauth.go: Couln't get oauth results."), rw, req)
+			return
+		}
+		r := &OAuthResponse{}
+		json.Unmarshal([]byte(oauthioParam[0]), r)
+		if r.Status != "success" {
+			if r.Message != "" {
+				cb(nil, errors.New("oauth.go: " + r.Message), rw, req)
+			} else {
+				cb(nil, errors.New("oauth.go: There is an error in the response"), rw, req)
+			}
+			return
+		}
+		oauthResp, error := o.Auth(r.Data.Code)
 		cb(oauthResp, error, rw, req)
-		//cb(nil, nil, nil, nil)
 	}
 }
 
@@ -129,7 +123,6 @@ func (o *OAuth) Auth(code string) (*OAuthRequestObject, error) {
 	data.Set("code", code)
 	data.Set("key", o.appKey)
 	data.Set("secret", o.appSecret)
-	fmt.Println(code, o.appKey, o.appSecret)
 	response, err := http.PostForm(o.OAuthdURL+"/auth/access_token", data)
 	if err != nil {
 		return nil, errors.New("oauth.go: Couldn't communicate with Oauthd")
@@ -139,12 +132,9 @@ func (o *OAuth) Auth(code string) (*OAuthRequestObject, error) {
 	if err != nil {
 		return nil, errors.New("oauth.go: Couldn't read Oauthd response")
 	}
-	fmt.Println(string(body))
 
-	var oauthRespPayload OAuthRequestObjectPayload
-	err = json.Unmarshal(body, oauthRespPayload)
-	fmt.Println(string(body))
-	oauthResp := &oauthRespPayload.data
+	oauthResp := &OAuthRequestObject{}
+	err = json.Unmarshal(body, oauthResp)
 	if err != nil {
 		return nil, errors.New("oauth.go: Couldn't parse response")
 	}
