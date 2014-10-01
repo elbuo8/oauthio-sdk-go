@@ -86,5 +86,3 @@ It is completely up to the user to decide where and how to store the tokens.
 ## MIT
 
 Enjoy, feel free to submit pull requests!
-
---
