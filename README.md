@@ -2,10 +2,12 @@
 
 This package simplify the interaction with [OAuth.io](https://oauth.io) or [oauthd](https://github.com/oauth-io/oauthd) using Golang.
 
+Special thanks to [Yamil Asusta](https://github.com/elbuo8) from Sendgrid who is the original creator of this SDK.
+
 ### Installation
 
 ```bash
-go get github.com/elbuo8/oauthio-sdk-go
+go get github.com/oauth-io/sdk-go
 ```
 
 ### Examples
@@ -19,7 +21,7 @@ package main
 
 import (
   "fmt"
-  "github.com/elbuo8/oauthio-sdk-go"
+  "github.com/oauth-io/sdk-go"
   "github.com/go-martini/martini"
 )
 
@@ -54,7 +56,7 @@ package main
 
 import (
   "fmt"
-  "github.com/elbuo8/oauthio-sdk-go"
+  "github.com/oauth-io/sdk-go"
   "github.com/gorilla/mux"
   "net/http"
 )
