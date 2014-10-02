@@ -67,12 +67,12 @@ func (a *OAuthRequestObject) Me(filters []string) ([]byte, error) {
 func (a *OAuthRequestObject) buildHeaders(r *http.Request) {
 	headers := url.Values{}
 	headers.Set("k", a.appKey)
-	if a.AccessToken == "" {
+	if a.AccessToken != "" {
 		headers.Set("access_token", a.AccessToken)
 	} else {
 		headers.Set("oauth_token", a.OAuthToken)
 		headers.Set("oauth_token_secret", a.OAuthSecret)
-		headers.Set("oauthv1", "1")
+		headers.Set("oauthv", "1")
 	}
 	r.Header = http.Header{
 		"oauthio": []string{headers.Encode()},

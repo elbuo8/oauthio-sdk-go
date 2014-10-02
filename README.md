@@ -1,11 +1,13 @@
 # OAuth.io SDK for Go
 
-This is a simple package to simplify the interaction with [OAuth.io](https://oauth.io) or [OAuthD](https://github.com/oauth-io/oauthd) using Golang.
+This package simplify the interaction with [OAuth.io](https://oauth.io) or [oauthd](https://github.com/oauth-io/oauthd) using Golang.
+
+Special thanks to [Yamil Asusta](https://github.com/elbuo8) from Sendgrid who is the original creator of this SDK.
 
 ### Installation
 
 ```bash
-go get github.com/elbuo8/oauthio-sdk-go
+go get github.com/oauth-io/sdk-go
 ```
 
 ### Examples
@@ -19,7 +21,7 @@ package main
 
 import (
   "fmt"
-  "github.com/elbuo8/oauthio-sdk-go"
+  "github.com/oauth-io/sdk-go"
   "github.com/go-martini/martini"
 )
 
@@ -27,19 +29,22 @@ func main() {
   m := martini.Classic()
   oauth := oauthio.New("PUBLIC_KEY", "SECRET_KEY")
 
-  // Generate State Token
-  m.Get("/oauth/state_token", func() string {
-    token, _ := o.GenerateStateToken()
-    return token
-  })
+  //redirect the user to the Facebook authorization page then redirect him to /oauth/redirect
+  m.Get("/signin", oauth.Redirect("facebook", "http://localhost:3000/oauth/redirect"))
 
-  // Use the Code generated in the Front End to Authenticate
-  m.Get("/oauth/:token", func(p martini.Params) string {
-    reqObject, _ := o.Auth(p["token"])
-    r, _ := reqObject.Me([]string{})
+  //Once redirected, handle the callback and get back a oauthio.OAuthRequestObject object
+  m.Get("/oauth/redirect", oauth.Callback(func(res *oauthio.OAuthRequestObject, err error, rw http.ResponseWriter, req *http.Request) {
+    if err != nil {
+      fmt.Println(err)
+      return
+    }
+
+    r, _ := res.Me([]string{})
+
+    //fmt.Println(res.AccessToken, err)
     fmt.Println(string(r))
-    return "OK"
-  })
+  }))
+
   m.Run()
 }
 ```
@@ -51,7 +56,7 @@ package main
 
 import (
   "fmt"
-  "github.com/elbuo8/oauthio-sdk-go"
+  "github.com/oauth-io/sdk-go"
   "github.com/gorilla/mux"
   "net/http"
 )
@@ -60,20 +65,20 @@ func main() {
   m := mux.NewRouter()
   oauth := oauthio.New("PUBLIC_KEY", "SECRET_KEY")
 
-  // Generate State Token
-  m.HandleFunc("/oauth/state_token", func(w http.RequestWriter, r *http.Request) {
-    token, _ := o.GenerateStateToken()
-    fmt.Fprintf(w, token)
+  m.HandleFunc("/signin", oauth.Redirect("facebook", "http://localhost:3000/oauth/redirect"))
+
+  m.HandleFunc("/oauth/redirect", oauth.Callback(func(res *oauthio.OAuthRequestObject, err error, rw http.ResponseWriter, req *http.Request) {
+    if err != nil {
+      fmt.Println(err)
+      return
+    }
+
+    r, _ := res.Me([]string{})
+
+    //fmt.Println(res.AccessToken, err)
+    fmt.Println(string(r))
   }))
 
-  m.HandleFunc("/oauth/:token", func(w http.RequestWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    token := vars["token"]
-    reqObject, _ := o.Auth(p["token"])
-    r, _ := reqObject.Me([]string{})
-    fmt.Println(string(r))
-    fmt.Fprintf(w, "OK")
-  })
   http.Handle("/", m)
 }
 ```
