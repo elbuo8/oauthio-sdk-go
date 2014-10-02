@@ -3,20 +3,20 @@ package oauthio
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/nu7hatch/gouuid"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-	"fmt"
 	//"runtime/debug"
 )
 
 const (
-	OAuthdURL = "https://oauth.io"
+	OAuthdURL  = "https://oauth.io"
 	OAuthdBase = "/auth"
-	Version   = "0.0.1"
+	Version    = "0.0.1"
 )
 
 type OAuth struct {
@@ -24,7 +24,6 @@ type OAuth struct {
 	OAuthdBase string
 	appKey     string
 	appSecret  string
-	Version    string
 	Client     *http.Client
 }
 
@@ -37,11 +36,10 @@ func New(appkey, appsecret string) *OAuth {
 		Dial: timeoutHandler,
 	}
 	return &OAuth{
-		OAuthdURL: OAuthdURL,
+		OAuthdURL:  OAuthdURL,
 		OAuthdBase: OAuthdBase,
-		appKey:    appkey,
-		appSecret: appsecret,
-		Version:   Version,
+		appKey:     appkey,
+		appSecret:  appsecret,
 		Client: &http.Client{
 			Transport: &transport,
 		},
@@ -49,7 +47,7 @@ func New(appkey, appsecret string) *OAuth {
 }
 
 func (o *OAuth) GetVersion() string {
-	return o.Version
+	return Version
 }
 
 func (o *OAuth) SetOAuthdURL(url string) {
@@ -68,14 +66,13 @@ func (o *OAuth) GenerateStateToken() (string, error) {
 	return id.String(), nil
 }
 
-
 func (o *OAuth) Redirect(provider string, redirectTo string) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		csrf_token, _ := o.GenerateStateToken()
 		Url, _ := url.Parse(o.OAuthdURL + o.OAuthdBase + "/" + provider)
 		parameters := url.Values{}
 		parameters.Add("k", o.appKey)
-		parameters.Add("opts", "{\"state\":\"" + csrf_token + "\"}")
+		parameters.Add("opts", "{\"state\":\""+csrf_token+"\"}")
 		parameters.Add("redirect_type", "server")
 		parameters.Add("redirect_uri", redirectTo)
 		Url.RawQuery = parameters.Encode()
@@ -85,29 +82,32 @@ func (o *OAuth) Redirect(provider string, redirectTo string) func(http.ResponseW
 }
 
 type OAuthResponseData struct {
-	Code 		string
+	Code string
 }
 
 type OAuthResponse struct {
-	Status 		string
-	Data 		OAuthResponseData
-	State 		string
-	Provider 	string
-	Message		string
+	Status   string
+	Data     OAuthResponseData
+	State    string
+	Provider string
+	Message  string
 }
 
 func (o *OAuth) Callback(cb func(*OAuthRequestObject, error, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		oauthioParam := req.URL.Query()["oauthio"]
 		if len(oauthioParam) == 0 {
-			cb(nil, errors.New("oauth.go: Couln't get oauth results."), rw, req)
+			cb(nil, errors.New("oauth.go: Could not get oauthio results."), rw, req)
 			return
 		}
 		r := &OAuthResponse{}
-		json.Unmarshal([]byte(oauthioParam[0]), r)
+		if err := json.Unmarshal([]byte(oauthioParam[0]), r); err != nil {
+			cb(nil, errors.New("oauth.go: Could not parse oauthio results"), rw, req)
+			return
+		}
 		if r.Status != "success" {
 			if r.Message != "" {
-				cb(nil, errors.New("oauth.go: " + r.Message), rw, req)
+				cb(nil, errors.New("oauth.go: "+r.Message), rw, req)
 			} else {
 				cb(nil, errors.New("oauth.go: There is an error in the response"), rw, req)
 			}
@@ -134,8 +134,7 @@ func (o *OAuth) Auth(code string) (*OAuthRequestObject, error) {
 	}
 
 	oauthResp := &OAuthRequestObject{}
-	err = json.Unmarshal(body, oauthResp)
-	if err != nil {
+	if err := json.Unmarshal(body, oauthResp); err != nil {
 		return nil, errors.New("oauth.go: Couldn't parse response")
 	}
 	if oauthResp.State == "" {
@@ -146,7 +145,6 @@ func (o *OAuth) Auth(code string) (*OAuthRequestObject, error) {
 	oauthResp.Client = o.Client
 	oauthResp.appKey = o.appKey
 	return oauthResp, nil
-	return nil, nil
 }
 
 func (o *OAuth) RefreshCredentials(creds *OAuthRequestObject, force bool) error {
